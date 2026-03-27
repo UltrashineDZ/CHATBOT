@@ -2,15 +2,6 @@ const axios = require('axios');
 const express = require("express");
 const OpenAI = require("openai");
 
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyr77JwuB7F5SJETqkFvtk3N8y5SFweQ6FFMTrOw4LtAFb7aGPi_VqQl0lCvWxWLz0y/exec";
-
-async function recordOrderToSheet(name, phone, address, product, price) {
-    try {
-        await axios.post(GOOGLE_SHEET_URL, { name, phone, address, product, totalPrice: price });
-        console.log("✅ Saved to Sheets");
-    } catch (e) { console.error("❌ Sheet Error", e.message); }
-}
-
 const app = express();
 app.use(express.json());
 
@@ -19,18 +10,23 @@ const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY
 });
 
-app.get("/", (req, res) => res.send("Bot is Live"));
+// Root route for Render health check
+app.get("/", (req, res) => res.send("Bot is Online"));
 
+// Facebook Webhook Verification
 app.get("/webhook", (req, res) => {
   if (req.query["hub.verify_token"] === process.env.VERIFY_TOKEN) {
     res.send(req.query["hub.challenge"]);
-  } else { res.sendStatus(403); }
+  } else {
+    res.sendStatus(403);
+  }
 });
 
 app.post("/webhook", async (req, res) => {
   const body = req.body;
   if (body.object === "page") {
     for (const entry of body.entry) {
+      if (!entry.messaging) continue;
       const event = entry.messaging[0];
       const senderId = event.sender.id;
 
@@ -39,7 +35,10 @@ app.post("/webhook", async (req, res) => {
           const completion = await openai.chat.completions.create({
             model: "google/gemini-2.0-flash-001",
             messages: [
-              { role: "system", content: "You are an Algerian Sales Bot. Speak ONLY Algerian Darija. Products: Nitro (4200da). Goal: Collect Name, Phone, and City. NO general info. Tell them pickup at World Express (Step Desk)." },
+              { 
+                role: "system", 
+                content: "You are an Algerian Sales Bot for UltraShine. RULES: 1. Speak ONLY Algerian Darija. 2. Price for Nitro is 4200da. 3. DO NOT give definitions. 4. Your ONLY goal is to ask for: Full Name, Phone, and City. 5. Be polite but stay focused on the order." 
+              },
               { role: "user", content: event.message.text }
             ]
           });
@@ -50,12 +49,17 @@ app.post("/webhook", async (req, res) => {
             recipient: { id: senderId },
             message: { text: replyText }
           });
-        } catch (err) { console.error("FB Error", err.message); }
+        } catch (err) {
+          console.error("Error:", err.message);
+        }
       }
     }
     res.sendStatus(200);
   }
 });
 
-app.listen(process.env.PORT || 10000);
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(Server running on port ${PORT});
+});;
 
