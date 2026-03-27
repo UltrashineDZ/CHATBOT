@@ -8,14 +8,14 @@ const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
-// Initialize official Google AI SDK
+// 1. Initialize official SDK
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Use 'gemini-3-flash' as it has the 20 RPD quota in your dashboard
+// 2. Use 'gemini-3-flash' as seen in your dashboard
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 app.get("/", (req, res) => {
-  res.send("Bot is active and running!");
+  res.send("Bot is running!");
 });
 
 // Facebook Webhook Verification
@@ -25,14 +25,14 @@ app.get("/webhook", (req, res) => {
   const challenge = req.query["hub.challenge"];
   
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("Webhook verified successfully!");
+    console.log("Webhook verified!");
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
   }
 });
 
-// Handling incoming messages
+// Message Handling
 app.post("/webhook", async (req, res) => {
   const body = req.body;
   if (body.object !== "page") return res.sendStatus(404);
@@ -45,16 +45,16 @@ app.post("/webhook", async (req, res) => {
     if (!event.message || !event.message.text) continue;
 
     const userMessage = event.message.text;
-    console.log("User sent:", userMessage);
+    console.log("User:", userMessage);
 
     try {
-      // Generate response using Gemini 3 Flash
+      // 3. Generate response using official method
       const result = await model.generateContent(userMessage);
       const replyText = result.response.text();
       
-      console.log("Gemini reply:", replyText);
+      console.log("Bot:", replyText);
 
-      // Send the reply back to Messenger
+      // 4. Send back to Messenger
       await fetch(
         https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
         {
@@ -67,11 +67,11 @@ app.post("/webhook", async (req, res) => {
         }
       );
     } catch (err) {
-      console.error("API Error:", err.message);
+      console.error("Gemini Error:", err.message);
       
-      // Handle the 429 "Quota Exceeded" error specifically
+      // Specifically logging quota issues
       if (err.message.includes("429")) {
-        console.log("Daily limit reached. Check AI Studio dashboard.");
+        console.warn("Quota limit reached for today.");
       }
     }
   }
@@ -79,4 +79,4 @@ app.post("/webhook", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(Server listening on port ${PORT}));
+app.listen(PORT, () => console.log("Server active on port " + PORT));
