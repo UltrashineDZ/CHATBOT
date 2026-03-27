@@ -1,5 +1,5 @@
 const express = require("express");
-const { GoogleGenerativeAI } = require("@google/generative-ai"); // Corrected import
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 app.use(express.json());
@@ -8,27 +8,31 @@ const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
-// Initialize the SDK correctly
+// Initialize official Google AI SDK
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-// Pre-configure the model instance
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+// Use 'gemini-3-flash' as it has the 20 RPD quota in your dashboard
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 app.get("/", (req, res) => {
-  res.send("Bot is running!");
+  res.send("Bot is active and running!");
 });
 
+// Facebook Webhook Verification
 app.get("/webhook", (req, res) => {
   const mode      = req.query["hub.mode"];
   const token     = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
+  
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("Webhook verified!");
+    console.log("Webhook verified successfully!");
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
   }
 });
 
+// Handling incoming messages
 app.post("/webhook", async (req, res) => {
   const body = req.body;
   if (body.object !== "page") return res.sendStatus(404);
@@ -37,17 +41,20 @@ app.post("/webhook", async (req, res) => {
     if (!entry.messaging) continue;
     const event    = entry.messaging[0];
     const senderId = event.sender.id;
+    
     if (!event.message || !event.message.text) continue;
 
     const userMessage = event.message.text;
-    console.log("User:", userMessage);
+    console.log("User sent:", userMessage);
 
     try {
-      // Corrected generation syntax
+      // Generate response using Gemini 3 Flash
       const result = await model.generateContent(userMessage);
-      const reply = result.response.text(); 
-      console.log("Bot:", reply);
+      const replyText = result.response.text();
+      
+      console.log("Gemini reply:", replyText);
 
+      // Send the reply back to Messenger
       await fetch(
         https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
         {
@@ -55,16 +62,16 @@ app.post("/webhook", async (req, res) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             recipient: { id: senderId },
-            message:   { text: reply },
+            message:   { text: replyText },
           }),
         }
       );
     } catch (err) {
-      // This will catch the 429 Quota errors
-      console.error("Gemini Error:", err.message);
+      console.error("API Error:", err.message);
       
+      // Handle the 429 "Quota Exceeded" error specifically
       if (err.message.includes("429")) {
-        console.warn("Quota exceeded. Waiting before next request.");
+        console.log("Daily limit reached. Check AI Studio dashboard.");
       }
     }
   }
@@ -72,4 +79,4 @@ app.post("/webhook", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Bot running on port " + PORT));
+app.listen(PORT, () => console.log(Server listening on port ${PORT}));
