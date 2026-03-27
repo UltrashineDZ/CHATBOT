@@ -8,10 +8,10 @@ const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
-// Initialize official SDK
+// Initialize official Google AI SDK
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Use 'gemini-3-flash' to match the 20 RPD quota in your dashboard
+// Matches the 20 RPD quota shown in your dashboard
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 app.get("/", (req, res) => {
@@ -49,7 +49,7 @@ app.post("/webhook", async (req, res) => {
       const result = await model.generateContent(userMessage);
       const replyText = result.response.text();
       
-      // FIXED: Corrected string template for the fetch URL
+      // FIXED: Corrected the fetch call to avoid SyntaxErrors
       await fetch(
         https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
         {
@@ -62,7 +62,7 @@ app.post("/webhook", async (req, res) => {
         }
       );
     } catch (err) {
-      console.error("API Error:", err.message);
+      console.error("Gemini Error:", err.message);
     }
   }
   res.sendStatus(200);
