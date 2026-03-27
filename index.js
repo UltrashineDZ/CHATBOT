@@ -11,7 +11,7 @@ const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 // Initialize official Google AI SDK
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Matches the 20 RPD quota shown in your dashboard
+// Use 'gemini-3-flash' to match the 20 RPD quota in your dashboard
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 app.get("/", (req, res) => {
@@ -49,7 +49,7 @@ app.post("/webhook", async (req, res) => {
       const result = await model.generateContent(userMessage);
       const replyText = result.response.text();
       
-      // FIXED: Corrected the fetch call to avoid SyntaxErrors
+      // FIXED: Corrected string template and closing parenthesis
       await fetch(
         https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
         {
@@ -68,5 +68,8 @@ app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(Server listening on port ${PORT}));
+// PORT BINDING: Critical for fixing the timeout error in 11260.jpg
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(Server successfully bound to port ${PORT});
+});
