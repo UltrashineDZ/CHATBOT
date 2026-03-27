@@ -10,7 +10,7 @@ app.post("/webhook", async (req, res) => {
     if (event.message && event.message.text) {
       try {
         const completion = await openai.chat.completions.create({
-  model: "deepseek/deepseek-chat", // or "google/gemini-2.0-flash-001"
+  model: "google/gemini-2.0-flash-001", // or "google/gemini-2.0-flash-001"
   messages: [
     { 
       role: "system", 
