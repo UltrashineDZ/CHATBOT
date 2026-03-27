@@ -1,53 +1,3 @@
-const express = require("express");
-const axios = require("axios");
-
-const app = express();
-app.use(express.json());
-
-// ── Environment Variables ──────────────────────────────────────────────────
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const SHEET_WEBHOOK_URL = process.env.SHEET_WEBHOOK_URL; // Google Apps Script URL
-
-// ── Product Price List ─────────────────────────────────────────────────────
-const PRODUCTS = {
-  "touchless nitro": { price: "4200 دج" },
-  "touchless classic": { price: "3500 دج" },
-  "engine cleaner": { price: "2800 دج" },
-  "wheel cleaner": { price: "2200 دج" },
-  "interior cleaner": { price: "1900 دج" },
-};
-
-// ── System Prompt ──────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `أنت بوت مبيعات UltraShine DZ.
-قواعد صارمة جداً:
-1. تكلم فقط بالعربية الجزائرية الدارجة.
-2. ممنوع تماماً شرح أي منتج.
-3. ممنوع استخدام ### أو ** أو * أو أي رموز markdown.
-4. فقط أعطي السعر مباشرة واطلب: الاسم، الهاتف، العنوان.
-5. ردودك قصيرة ومباشرة — جملتين فقط.
-6. التوصيل عبر World Express (Step Desk).
-7. بعد جمع الاسم والهاتف والعنوان، أكد الطلب وأضف:
-   DATA_TAG{"name":"الاسم","phone":"الهاتف","address":"العنوان","product":"المنتج","price":"السعر"}`;
-
-// ── Health Check ───────────────────────────────────────────────────────────
-app.get("/", (req, res) => res.send("✅ UltraShine Bot is running!"));
-
-// ── Webhook Verification ───────────────────────────────────────────────────
-app.get("/webhook", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("✅ Webhook verified!");
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
-  }
-});
-
-// ── Receive Messages ───────────────────────────────────────────────────────
 app.post("/webhook", async (req, res) => {
   const body = req.body;
   if (body.object !== "page") return res.sendStatus(404);
@@ -56,76 +6,63 @@ app.post("/webhook", async (req, res) => {
     if (!entry.messaging) continue;
     const event = entry.messaging[0];
     const senderId = event.sender.id;
+    
+    if (event.message && event.message.text) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "deepseek/deepseek-chat", 
+          messages: [
+            { 
+              role: "system", 
+              content: `STRICT ROLE: You are the UltraShine Sales Bot for car wash products in Algeria.
+              - YOU ARE NOT AN ENCYCLOPEDIA.
+              - YOU ARE NOT A DISCORD BOT.
+              - Speak ONLY in Algerian Arabic (Darija).
+              - If the user says "order" or mentions a product, skip definitions and ask for their info.
+              
+              PRICING:
+              - Touchless Nitro (Green): 4200da (delivery included).
+              - Touchless Nitro (Pink): 4200da (free delivery).
+              - Dash Polish: 1200da.
+              
+              REQUIRED INFO TO COLLECT:
+              1. Full Name
+              2. Phone Number
+              3. Delivery Address (City)
+              
+              Tell them: 'الاستلام من مكتب استقبال World Express (Step Desk)'.
+              When info is complete, append: DATA_TAG{"name":"...","phone":"...","address":"...","product":"...","price":"..."}DATA_TAG` 
+            },
+            // THE "TUNING" EXAMPLE
+            { role: "user", content: "اريد طلب touchless nitro" },
+            { role: "assistant", content: "أهلاً بك! سعر Touchless Nitro هو 4200 دج مع التوصيل. من فضلك أعطني اسمك الكامل، رقم هاتفك، وعنوانك لتسجيل الطلب. الاستلام يكون من World Express (Step Desk)." },
+            // ACTUAL USER MESSAGE
+            { role: "user", content: event.message.text }
+          ],
+        });
 
-    if (!event.message || !event.message.text) continue;
+        let replyText = completion.choices[0].message.content;
 
-    const userMessage = event.message.text.toLowerCase();
-    console.log("📩 User:", userMessage);
-
-    try {
-      // Check for product inquiries
-      for (const product in PRODUCTS) {
-        if (userMessage.includes(product)) {
-          const price = PRODUCTS[product].price;
-          await sendMessage(senderId, `سعر ${product} هو ${price} مع التوصيل. عطيني من فضلك:\n1. اسمك الكامل\n2. رقم هاتفك\n3. عنوانك\n\nالتوصيل عبر World Express (Step Desk) 📦`);
-          return;
+        // SHEET LOGIC
+        if (replyText.includes("DATA_TAG")) {
+            try {
+                const jsonStr = replyText.split("DATA_TAG")[1].split("DATA_TAG")[0];
+                const order = JSON.parse(jsonStr);
+                await recordOrderToSheet(order.name, order.phone, order.address, order.product, order.price);
+                replyText = replyText.split("DATA_TAG")[0] + "\n\n✅ تم تسجيل طلبك بنجاح!";
+            } catch (e) { console.error("JSON Error", e); }
         }
+
+        // Send to Facebook using Axios
+        await axios.post(https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}, {
+            recipient: { id: senderId },
+            message:   { text: replyText },
+        });
+
+      } catch (err) {
+        console.error("Error:", err.message);
       }
-
-      // Fallback if no specific product is mentioned
-      await sendMessage(senderId, "عذراً، ما فهمتش الطلب. وش تحب تطلب؟");
-
-    } catch (err) {
-      console.error("❌ Error:", err.message);
-      await sendMessage(senderId, "عذراً، صرا مشكل تقني. حاول مرة أخرى 🙏");
     }
   }
-
   res.sendStatus(200);
 });
-
-// ── Helper: Send Message to Messenger ──────────────────────────────────────
-async function sendMessage(recipientId, text) {
-  const chunks = [];
-  while (text.length > 0) {
-    let chunk = text.substring(0, 1800);
-    let lastSpaceIndex = chunk.lastIndexOf(' ');
-
-    if (lastSpaceIndex === -1) {
-      lastSpaceIndex = 1800; // or whatever your limit is
-    }
-
-    chunks.push(text.substring(0, lastSpaceIndex));
-    text = text.substring(lastSpaceIndex).trim();
-  }
-  
-  for (const chunk of chunks) {
-    await axios.post(
-      "https://graph.facebook.com/v18.0/me/messages?access_token=" + PAGE_ACCESS_TOKEN,
-      {
-        recipient: { id: recipientId },
-        message: { text: chunk },
-      }
-    );
-  }
-}
-
-// ── Helper: Save Order to Google Sheets ───────────────────────────────────
-async function saveToSheet(order) {
-  if (!SHEET_WEBHOOK_URL) {
-    console.log("⚠️  SHEET_WEBHOOK_URL not set, skipping sheet save");
-    return;
-  }
-  await axios.post(SHEET_WEBHOOK_URL, {
-    name: order.name || "",
-    phone: order.phone || "",
-    address: order.address || "",
-    product: order.product || "",
-    price: order.price || "",
-    date: new Date().toLocaleString("fr-DZ", { timeZone: "Africa/Algiers" }),
-  });
-}
-
-// ── Start Server ───────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("🚀 UltraShine Bot running on port " + PORT));
