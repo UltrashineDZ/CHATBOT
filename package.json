@@ -1,9 +1,8 @@
 {
   "name": "ultrashine-bot",
   "version": "1.0.0",
-  "engines": {
-    "node": "20.x"
-  },
+  "description": "Sales bot for car wash products",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
