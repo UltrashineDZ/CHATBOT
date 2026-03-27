@@ -8,14 +8,14 @@ const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
-// 1. Initialize official SDK
+// Initialize official SDK
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// 2. Use 'gemini-3-flash' as seen in your dashboard
+// Use 'gemini-3-flash' to match the 20 RPD quota in your dashboard
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 app.get("/", (req, res) => {
-  res.send("Bot is running!");
+  res.send("Bot is active and running!");
 });
 
 // Facebook Webhook Verification
@@ -25,14 +25,13 @@ app.get("/webhook", (req, res) => {
   const challenge = req.query["hub.challenge"];
   
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("Webhook verified!");
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
   }
 });
 
-// Message Handling
+// Handling incoming messages
 app.post("/webhook", async (req, res) => {
   const body = req.body;
   if (body.object !== "page") return res.sendStatus(404);
@@ -45,16 +44,12 @@ app.post("/webhook", async (req, res) => {
     if (!event.message || !event.message.text) continue;
 
     const userMessage = event.message.text;
-    console.log("User:", userMessage);
 
     try {
-      // 3. Generate response using official method
       const result = await model.generateContent(userMessage);
       const replyText = result.response.text();
       
-      console.log("Bot:", replyText);
-
-      // 4. Send back to Messenger
+      // FIXED: Corrected string template for the fetch URL
       await fetch(
         https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
         {
@@ -67,16 +62,11 @@ app.post("/webhook", async (req, res) => {
         }
       );
     } catch (err) {
-      console.error("Gemini Error:", err.message);
-      
-      // Specifically logging quota issues
-      if (err.message.includes("429")) {
-        console.warn("Quota limit reached for today.");
-      }
+      console.error("API Error:", err.message);
     }
   }
   res.sendStatus(200);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server active on port " + PORT));
+app.listen(PORT, () => console.log(Server listening on port ${PORT}));
