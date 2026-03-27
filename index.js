@@ -1,22 +1,25 @@
 const express = require("express");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const OpenAI = require("openai");
 
 const app = express();
 app.use(express.json());
 
-const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
-const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
+// Environment Variables from Render
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const PAGE_ACCESS_TOKEN  = process.env.PAGE_ACCESS_TOKEN;
+const VERIFY_TOKEN       = process.env.VERIFY_TOKEN;
 
-// Initialize official SDK
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-// Use 'gemini-3-flash' to match your 20 RPD dashboard quota
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
-
-app.get("/", (req, res) => {
-  res.send("Bot is online!");
+// Initialize OpenAI client for OpenRouter
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: OPENROUTER_API_KEY,
+  defaultHeaders: {
+    "HTTP-Referer": "https://render.com", 
+    "X-Title": "Messenger Bot",
+  }
 });
+
+app.get("/", (req, res) => res.send("Bot is running on OpenRouter!"));
 
 // Facebook Webhook Verification
 app.get("/webhook", (req, res) => {
@@ -38,11 +41,18 @@ app.post("/webhook", async (req, res) => {
     const senderId = event.sender.id;
     
     if (event.message && event.message.text) {
+      const userMessage = event.message.text;
+
       try {
-        const result = await model.generateContent(event.message.text);
-        const replyText = result.response.text();
-        
-        // FIXED: Using a clean URL string to avoid SyntaxErrors
+        // Request response from OpenRouter
+        const completion = await openai.chat.completions.create({
+          model: "google/gemini-2.0-flash-lite-preview:free", 
+          messages: [{ role: "user", content: userMessage }],
+        });
+
+        const replyText = completion.choices[0].message.content;
+
+        // Send response back to Facebook
         const fbUrl = "https://graph.facebook.com/v18.0/me/messages?access_token=" + PAGE_ACCESS_TOKEN;
         
         await fetch(fbUrl, {
@@ -54,15 +64,15 @@ app.post("/webhook", async (req, res) => {
           }),
         });
       } catch (err) {
-        console.error("API Error:", err.message);
+        console.error("OpenRouter API Error:", err.message);
       }
     }
   }
   res.sendStatus(200);
 });
 
-// FIXED: Port binding for Render
+// FIXED: Port binding for Render deployment
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server running on port " + PORT);
+  console.log("Server successfully listening on port " + PORT);
 });
