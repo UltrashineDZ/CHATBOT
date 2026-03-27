@@ -1,5 +1,5 @@
 const express = require("express");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 
 const app = express();
 app.use(express.json());
@@ -8,8 +8,7 @@ const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 app.get("/", (req, res) => {
   res.send("Bot is running!");
@@ -39,8 +38,11 @@ app.post("/webhook", async (req, res) => {
     console.log("User:", userMessage);
 
     try {
-      const result = await model.generateContent(userMessage);
-      const reply  = result.response.text();
+      const result = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: userMessage,
+      });
+      const reply = result.text;
       console.log("Bot:", reply);
 
       await fetch(
@@ -59,4 +61,3 @@ app.post("/webhook", async (req, res) => {
     }
   }
   res.sendStatus(200);
-});
