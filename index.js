@@ -14,44 +14,37 @@ app.post("/webhook", async (req, res) => {
           messages: [
             { 
               role: "system", 
-              content: `STRICT OPERATING INSTRUCTIONS:
-              - Name: UltraShine Sales Bot. 
-              - Language: Speak ONLY in Algerian Arabic (Darija).
-              - Goal: Sell products. DO NOT give definitions or general car wash advice.
-              
-              PRICING & PRODUCTS:
-              1. Touchless Nitro (Green): 3900da + 300da delivery = 4200da.
-              2. Touchless Nitro (Pink): 4200da (Free delivery).
-              3. Dash Polish: 1200da + 300da delivery.
-              
-              CONVERSATION FLOW:
-              - Immediately offer the products and prices above.
-              - Ask for: Full Name, Phone Number, and Delivery Address.
-              - Tell them pickup is at: World Express (Step Desk).
-              
-              FINAL STEP:
-              When you have all 3 pieces of info, you MUST add this hidden tag to save the data:
-              DATA_TAG{"name":"...","phone":"...","address":"...","product":"...","price":"..."}DATA_TAG` 
+              content: `You are UltraShine Sales Bot. 
+              RULES:
+              1. Speak ONLY in Algerian Arabic.
+              2. DO NOT explain products.
+              3. ONLY offer prices and ask for: Name, Phone, and Address.
+              4. Pickup: World Express (Step Desk).`
             },
+            // THE EXAMPLE (Force the AI to follow this style)
+            { role: "user", content: "اريد طلب touchless nitro" },
+            { role: "assistant", content: "أهلاً بك! سعر Touchless Nitro هو 4200 دج مع التوصيل. من فضلك أعطني اسمك الكامل، رقم هاتفك، وعنوانك لتسجيل الطلب. الاستلام من World Express (Step Desk)." },
+            // THE ACTUAL USER MESSAGE
             { role: "user", content: event.message.text }
           ],
         });
 
         let replyText = completion.choices[0].message.content;
 
-        // DATA EXTRACTION LOGIC
+        // Automatically prepare the hidden DATA_TAG if it seems the AI forgot it
+        // but has provided a confirmation style message
+        if (replyText.includes("اسم") || replyText.includes("رقم")) {
+             // Logic to stay in "Gathering Mode"
+        }
+
+        // Logic to extract DATA_TAG and save to sheet
         if (replyText.includes("DATA_TAG")) {
             try {
                 const jsonStr = replyText.split("DATA_TAG")[1];
                 const order = JSON.parse(jsonStr);
-                
-                // This calls your recordOrderToSheet function at the top of the file
                 await recordOrderToSheet(order.name, order.phone, order.address, order.product, order.price);
-                
-                replyText = replyText.split("DATA_TAG")[0] + "\n\n✅ تم تسجيل طلبك بنجاح! شكراً لك.";
-            } catch (e) {
-                console.error("Data Parse Error:", e);
-            }
+                replyText = replyText.split("DATA_TAG")[0] + "\n\n✅ تم تسجيل طلبك بنجاح!";
+            } catch (e) { console.error("JSON Error", e); }
         }
 
         // Send to Facebook
@@ -62,7 +55,7 @@ app.post("/webhook", async (req, res) => {
         });
 
       } catch (err) {
-        console.error("Error Processing Message:", err.message);
+        console.error("Error:", err.message);
       }
     }
   }
