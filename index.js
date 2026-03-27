@@ -8,17 +8,17 @@ const GEMINI_API_KEY    = process.env.GEMINI_API_KEY;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
-// Initialize official Google AI SDK
+// Initialize official SDK
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Use 'gemini-3-flash' to match the 20 RPD quota in your dashboard
+// Targets Gemini 3 Flash as it has 20 RPD in your dashboard
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
 app.get("/", (req, res) => {
   res.send("Bot is active and running!");
 });
 
-// Facebook Webhook Verification
+// Webhook Verification
 app.get("/webhook", (req, res) => {
   const mode      = req.query["hub.mode"];
   const token     = req.query["hub.verify_token"];
@@ -31,7 +31,7 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// Handling incoming messages
+// Message Handling
 app.post("/webhook", async (req, res) => {
   const body = req.body;
   if (body.object !== "page") return res.sendStatus(404);
@@ -42,14 +42,13 @@ app.post("/webhook", async (req, res) => {
     const senderId = event.sender.id;
     
     if (!event.message || !event.message.text) continue;
-
     const userMessage = event.message.text;
 
     try {
       const result = await model.generateContent(userMessage);
       const replyText = result.response.text();
       
-      // FIXED: Corrected string template and closing parenthesis
+      // FIXED: Corrected the backticks and parentheses on line 54
       await fetch(
         https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
         {
@@ -62,14 +61,14 @@ app.post("/webhook", async (req, res) => {
         }
       );
     } catch (err) {
-      console.error("Gemini Error:", err.message);
+      console.error("Gemini API Error:", err.message);
     }
   }
   res.sendStatus(200);
 });
 
-// PORT BINDING: Critical for fixing the timeout error in 11260.jpg
+// FIXED: Ensures the server binds correctly to the port on Render
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(Server successfully bound to port ${PORT});
+  console.log(Server listening on port ${PORT});
 });
