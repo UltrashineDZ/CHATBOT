@@ -19,6 +19,7 @@ app.get("/webhook", (req, res) => {
   const token     = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("Webhook verified!");
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
@@ -46,7 +47,7 @@ app.post("/webhook", async (req, res) => {
       console.log("Bot:", reply);
 
       await fetch(
-        https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN},
+        "https://graph.facebook.com/v18.0/me/messages?access_token=" + PAGE_ACCESS_TOKEN,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -61,3 +62,7 @@ app.post("/webhook", async (req, res) => {
     }
   }
   res.sendStatus(200);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Bot running on port " + PORT));
