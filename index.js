@@ -4,12 +4,12 @@ const OpenAI = require("openai");
 const app = express();
 app.use(express.json());
 
-// Environment Variables from Render
+// Load your keys from Render environment variables
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const PAGE_ACCESS_TOKEN  = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN       = process.env.VERIFY_TOKEN;
 
-// Initialize OpenAI client for OpenRouter
+// 1. Initialize OpenRouter
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
   apiKey: OPENROUTER_API_KEY,
@@ -19,9 +19,9 @@ const openai = new OpenAI({
   }
 });
 
-app.get("/", (req, res) => res.send("Bot is running on OpenRouter!"));
+app.get("/", (req, res) => res.send("Bot is active on OpenRouter!"));
 
-// Facebook Webhook Verification
+// Webhook Verification
 app.get("/webhook", (req, res) => {
   if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
     res.status(200).send(req.query["hub.challenge"]);
@@ -41,20 +41,17 @@ app.post("/webhook", async (req, res) => {
     const senderId = event.sender.id;
     
     if (event.message && event.message.text) {
-      const userMessage = event.message.text;
-
       try {
-        // Request response from OpenRouter
+        // 2. Use a Free Model (No Gemini Key needed)
         const completion = await openai.chat.completions.create({
-          model: "google/gemini-2.0-flash-lite-preview:free", 
-          messages: [{ role: "user", content: userMessage }],
+          model: "deepseek/deepseek-chat", // Or use "meta-llama/llama-3.3-70b-instruct"
+          messages: [{ role: "user", content: event.message.text }],
         });
 
         const replyText = completion.choices[0].message.content;
 
-        // Send response back to Facebook
+        // 3. Send response to Facebook
         const fbUrl = "https://graph.facebook.com/v18.0/me/messages?access_token=" + PAGE_ACCESS_TOKEN;
-        
         await fetch(fbUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -71,7 +68,7 @@ app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
 });
 
-// FIXED: Port binding for Render deployment
+// 4. Correct Port Binding for Render
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log("Server successfully listening on port " + PORT);
