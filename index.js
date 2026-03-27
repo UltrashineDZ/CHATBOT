@@ -1,3 +1,25 @@
+
+
+const axios = require('axios');
+
+// 1. Replace with the URL you copied from Google Apps Script
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyr77JwuB7F5SJETqkFvtk3N8y5SFweQ6FFMTrOw4LtAFb7aGPi_VqQl0lCvWxWLz0y/exec";
+
+// 2. This function sends the data to your sheet
+async function recordOrderToSheet(name, phone, address, product, price) {
+    try {
+        await axios.post(GOOGLE_SHEET_URL, {
+            name: name,
+            phone: phone,
+            address: address,
+            product: product,
+            totalPrice: price
+        });
+        console.log("Order saved to Google Sheets!");
+    } catch (error) {
+        console.error("Error saving to sheet:", error);
+    }
+}
 const express = require("express");
 const OpenAI = require("openai");
 
