@@ -1,4 +1,3 @@
-
 {
   "name": "messenger-bot",
   "version": "1.0.0",
@@ -10,5 +9,6 @@
     "express": "^4.18.2",
     "@google/generative-ai": "^0.21.0"
   }
+}
 
 
