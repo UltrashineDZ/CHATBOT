@@ -11,7 +11,7 @@ const VERIFY_TOKEN      = process.env.VERIFY_TOKEN;
 
 // ── Gemini Setup ───────────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5 Flash-Lite" });
 
 // ── Health Check ───────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
